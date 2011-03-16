@@ -558,15 +558,16 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 			continue;
 		}
 
-		err = armpmu->request_pmu_irq(irq, &handle_irq);
-
-                if (err) {
-                        pr_warning("unable to request IRQ%d for %s perf "
-                                "counters\n", irq, armpmu->name);
-
-			armpmu_release_hardware(cpu_pmu);
-                        return err;
-                }
+		err = request_irq(irq, handle_irq,
+				  IRQF_NOBALANCING | IRQF_NO_THREAD,
+				  "arm-pmu", armpmu);
+		if (err) {
+			pr_err("unable to request IRQ%d for ARM PMU counters\n",
+				irq);
+			armpmu_release_hardware(armpmu);
+			return err;
+		} else if (plat && plat->enable_irq)
+			plat->enable_irq(irq);
 
 		cpumask_set_cpu(i, &armpmu->active_irqs);
 	}
